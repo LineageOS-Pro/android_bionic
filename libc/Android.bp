@@ -54,7 +54,7 @@ cc_defaults {
     name: "libc_defaults",
     defaults: ["linux_bionic_supported"],
     cflags: libc_common_flags + [
-        "-DUSE_SCUDO",
+        "-DUSE_MIMALLOC",
     ],
     asflags: libc_common_flags,
     conlyflags: ["-std=gnu99"],
@@ -95,7 +95,7 @@ cc_defaults {
             cflags: ["-DSCUDO_PATTERN_FILL_CONTENTS"],
         },
         malloc_low_memory: {
-            cflags: ["-UUSE_SCUDO"],
+            cflags: ["-UUSE_MIMALLOC"],
         },
     },
 
@@ -171,22 +171,25 @@ cc_defaults {
 cc_defaults {
     name: "libc_native_allocator_defaults",
 
+    // mimalloc is the default native allocator.
     whole_static_libs: [
-        "libscudo",
+        "libmimalloc",
+        "libc_mimalloc_wrapper",
     ],
     cflags: [
-        "-DUSE_SCUDO",
+        "-DUSE_MIMALLOC",
     ],
     header_libs: ["gwp_asan_headers"],
     product_variables: {
         malloc_low_memory: {
-            cflags: ["-UUSE_SCUDO"],
+            cflags: ["-UUSE_MIMALLOC"],
             whole_static_libs: [
                 "libjemalloc5",
                 "libc_jemalloc_wrapper",
             ],
             exclude_static_libs: [
-                "libscudo",
+                "libmimalloc",
+                "libc_mimalloc_wrapper",
             ],
         },
     },
@@ -203,6 +206,19 @@ cc_library_static {
     // Used to pull in the jemalloc include directory so that if the
     // library is removed, the include directory is also removed.
     static_libs: ["libjemalloc5"],
+}
+
+// Functions not implemented by mimalloc directly, or that need to be
+// modified for Android.
+cc_library_static {
+    name: "libc_mimalloc_wrapper",
+    defaults: ["libc_defaults"],
+    srcs: ["bionic/malloc_mimalloc.c"],
+    cflags: ["-fvisibility=hidden"],
+
+    // Used to pull in the mimalloc include directory and resolve the mi_
+    // symbols referenced by this wrapper.
+    static_libs: ["libmimalloc"],
 }
 
 // ========================================================
@@ -1735,6 +1751,7 @@ cc_library_headers {
         "//external/jemalloc_new",
         "//external/libunwind_llvm",
         "//external/llvm-libc",
+        "//external/mimalloc",
         "//external/scudo",
         "//system/core/property_service/libpropertyinfoparser",
         "//system/extras/toolchain-extras",
