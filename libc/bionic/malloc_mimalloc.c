@@ -139,7 +139,8 @@ int mi_malloc_iterate(uintptr_t base, size_t size,
     return -1;
   }
   struct MiIterateContext ctx = {base, size, callback, arg};
-  mi_heap_visit_blocks(mi_heap_get_default(), true /* visit_blocks */, MiBlockVisitor, &ctx);
+  // dev3 renamed mi_heap_get_default() to mi_theap_get_default().
+  mi_heap_visit_blocks(mi_theap_get_default(), true /* visit_blocks */, MiBlockVisitor, &ctx);
   return 0;
 }
 
