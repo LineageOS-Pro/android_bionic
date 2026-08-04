@@ -53,14 +53,17 @@ size_t mi_malloc_usable_size(const void* p) {
   return mi_usable_size(p);
 }
 
-// mallinfo() is deprecated; mimalloc does not expose per-block accounting
-// through its public API on the main branch, so report the committed bytes
-// (a superset of the allocated bytes) in the in-use/mmapped fields.
+// mallinfo() is deprecated; mimalloc exposes only process-wide commit/RSS
+// statistics (no per-block accounting), so report the committed bytes in the
+// in-use/mmapped/arena fields as an approximation.
 struct mallinfo mi_mallinfo(void) {
   struct mallinfo mi = {0};
   size_t current_commit = 0;
   size_t peak_commit = 0;
   mi_process_info(NULL, NULL, NULL, NULL, NULL, &current_commit, &peak_commit, NULL);
+  // mimalloc does not distinguish mmap'd from sbrk'd memory (it uses
+  // segments/arenas), so the whole committed set goes into arena/hblkhd.
+  mi.arena = current_commit;
   mi.hblkhd = current_commit;
   mi.uordblks = current_commit;
   return mi;
@@ -69,18 +72,27 @@ struct mallinfo mi_mallinfo(void) {
 int mi_mallopt(int param, int value) {
   switch (param) {
     case M_DECAY_TIME:
-      // M_DECAY_TIME is expressed in milliseconds (-1 disables purging), which
-      // matches mimalloc's mi_option_purge_delay semantics.
+      // M_DECAY_TIME is in milliseconds (-1 disables purging), matching
+      // mimalloc's mi_option_purge_delay semantics.
       mi_option_set(mi_option_purge_delay, value);
       return 1;
     case M_PURGE:
     case M_PURGE_ALL:
+      // Force a full collect and purge of all freed memory.
       mi_collect(true);
       return 1;
     case M_LOG_STATS:
+      // Dump allocator statistics (glibc semantics).
       mi_stats_print_out(NULL, NULL);
       return 1;
     default:
+      // The remaining bionic params have no mimalloc equivalent:
+      // - M_MEMTAG_TUNING / M_BIONIC_SET_HEAP_TAGGING_LEVEL: MTE-specific,
+      //   mimalloc does not implement allocator-level memory tagging.
+      // - M_BIONIC_ZERO_INIT: zero-fill is compile-time (MI_ZERO_CONTENTS)
+      //   and cannot be toggled at runtime.
+      // - M_THREAD_DISABLE_MEM_INIT / M_CACHE_* / M_TSDS_*: no matching
+      //   mimalloc knobs (segments/arenas + purge_delay replace them).
       return 0;
   }
 }
@@ -99,11 +111,13 @@ int mi_malloc_info(int options, FILE* fp) {
   mi_process_info(NULL, NULL, NULL, NULL, NULL, &current_commit, &peak_commit, NULL);
 
   // Keep the XML shape compatible with the format written by the jemalloc and
-  // scudo wrappers.
+  // scudo wrappers, adding mimalloc-specific commit stats.
   dprintf(fd, "<malloc version=\"mimalloc-1\"><heap nr=\"0\">");
   dprintf(fd, "<allocated-large>%zu</allocated-large>", current_commit);
   dprintf(fd, "<allocated-huge>0</allocated-huge>");
   dprintf(fd, "<allocated-bins>0</allocated-bins>");
+  dprintf(fd, "<commit>%zu</commit>", current_commit);
+  dprintf(fd, "<peak-commit>%zu</peak-commit>", peak_commit);
   dprintf(fd, "</heap></malloc>");
   return 0;
 }
@@ -129,9 +143,10 @@ static bool MiBlockVisitor(const mi_heap_t* heap, const mi_heap_area_t* area, vo
   return true;  // continue iterating
 }
 
-// mimalloc has no API to iterate over all threads' heaps; visit the blocks of
-// the calling thread's default heap as a best effort (used by libmemunreachable
-// and other debugging tools).
+// mimalloc exposes no API to enumerate every thread's heap (heaps are
+// thread-local), and walking the internal heap list would race with
+// concurrent allocation on other threads. Visit the calling thread's default
+// heap as a best effort; used by libmemunreachable and other debugging tools.
 int mi_malloc_iterate(uintptr_t base, size_t size,
                       void (*callback)(uintptr_t base, size_t size, void* arg), void* arg) {
   if (callback == NULL) {
