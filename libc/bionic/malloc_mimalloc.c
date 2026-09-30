@@ -163,3 +163,11 @@ int mi_malloc_iterate(uintptr_t base, size_t size,
 // debugging tools to pause allocation activity); no-ops.
 void mi_malloc_disable(void) {}
 void mi_malloc_enable(void) {}
+
+// ---------------------------------------------------------------------------
+// mi_reallocarray is NOT re-implemented here: the mimalloc static library
+// already exports it (src/alloc-posix.c, POSIX allocator API). It is declared
+// in <mimalloc.h> which malloc_mimalloc.h pulls in transitively; the
+// Malloc(reallocarray) dispatch in malloc_common.cpp resolves directly to the
+// libmimalloc-provided symbol.
+

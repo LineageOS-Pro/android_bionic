@@ -39,6 +39,7 @@ int mi_posix_memalign(void** p, size_t alignment, size_t size);
 void* mi_aligned_alloc(size_t alignment, size_t size);
 void* mi_valloc(size_t size);
 void* mi_pvalloc(size_t size);
+void* mi_reallocarray(void* p, size_t count, size_t size);
 
 // Compatibility layer implemented in bionic (malloc_mimalloc.cpp); these
 // functions were removed from mimalloc's public API on the main branch.
