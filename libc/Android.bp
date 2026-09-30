@@ -1960,6 +1960,7 @@ cc_library_headers {
         "//external/libunwind_llvm",
         "//external/llvm-libc",
         "//external/mimalloc",
+        "//external/scudo",
         "//system/core/property_service/libpropertyinfoparser",
         "//system/extras/toolchain-extras",
     ],
