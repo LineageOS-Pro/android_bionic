@@ -187,25 +187,41 @@ cc_defaults {
 cc_defaults {
     name: "libc_native_allocator_defaults",
 
+    // mimalloc is the default native allocator.
     whole_static_libs: [
-        "libscudo",
+        "libmimalloc",
+        "libc_mimalloc_wrapper",
     ],
     cflags: [
-        "-DUSE_SCUDO",
+        "-DUSE_MIMALLOC",
     ],
     header_libs: ["gwp_asan_headers"],
     product_variables: {
         malloc_low_memory: {
-            cflags: ["-UUSE_SCUDO"],
+            cflags: ["-UUSE_MIMALLOC"],
             whole_static_libs: [
                 "libjemalloc5",
                 "libc_jemalloc_wrapper",
             ],
             exclude_static_libs: [
-                "libscudo",
+                "libmimalloc",
+                "libc_mimalloc_wrapper",
             ],
         },
     },
+}
+
+// Functions not implemented by mimalloc directly, or that need to be
+// modified for Android.
+cc_library_static {
+    name: "libc_mimalloc_wrapper",
+    defaults: ["libc_defaults"],
+    srcs: ["bionic/malloc_mimalloc.c"],
+    cflags: ["-fvisibility=hidden"],
+
+    // Used to pull in the mimalloc include directory and resolve the mi_
+    // symbols referenced by this wrapper.
+    static_libs: ["libmimalloc"],
 }
 
 // Functions not implemented by jemalloc directly, or that need to
@@ -1943,7 +1959,7 @@ cc_library_headers {
         "//external/jemalloc_new",
         "//external/libunwind_llvm",
         "//external/llvm-libc",
-        "//external/scudo",
+        "//external/mimalloc",
         "//system/core/property_service/libpropertyinfoparser",
         "//system/extras/toolchain-extras",
     ],
