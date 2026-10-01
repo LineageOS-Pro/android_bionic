@@ -98,7 +98,12 @@ bionic_cc_defaults {
 
     product_variables: {
         malloc_zero_contents: {
-            cflags: ["-DSCUDO_ZERO_CONTENTS"],
+            // No-op with the mimalloc allocator: mimalloc zero-fills new
+            // allocations unconditionally via -DMI_ZERO_CONTENTS=1 in
+            // external/mimalloc/Android.bp.  Kept for build compatibility;
+            // do not rewire this variable to a scudo macro (scudo is no
+            // longer the default allocator).
+            cflags: ["-DMI_ZERO_CONTENTS=1"],
         },
         malloc_low_memory: {
             cflags: ["-UUSE_MIMALLOC"],
