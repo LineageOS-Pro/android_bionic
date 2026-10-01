@@ -63,7 +63,7 @@ bionic_cc_defaults {
         "linux_bionic_supported",
     ],
     cflags: libc_common_flags + [
-        "-DUSE_SCUDO",
+        "-DUSE_MIMALLOC",
     ],
     asflags: libc_common_flags,
     conlyflags: ["-std=gnu99"],
@@ -100,11 +100,8 @@ bionic_cc_defaults {
         malloc_zero_contents: {
             cflags: ["-DSCUDO_ZERO_CONTENTS"],
         },
-        malloc_pattern_fill_contents: {
-            cflags: ["-DSCUDO_PATTERN_FILL_CONTENTS"],
-        },
         malloc_low_memory: {
-            cflags: ["-UUSE_SCUDO"],
+            cflags: ["-UUSE_MIMALLOC"],
         },
     },
 
